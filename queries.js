@@ -30,6 +30,9 @@ const getUserById = (request, response) => {
 const createUser = (request, response) => {
   const { phone } = request.body;
   const otp = Math.floor(1000 + Math.random() * 9000);
+  setTimeout(() => {
+    pool.query("UPDATE users SET otp = '' WHERE phone = $1", [phone]);
+  }, 60000);
 
   pool.query(
     "INSERT INTO users (phone,otp) VALUES ($1,$2)",
@@ -38,9 +41,11 @@ const createUser = (request, response) => {
       if (error) {
         throw error;
       }
-      response
-        .status(200)
-        .json({ status: "success", message: `User successfully added` });
+      response.status(200).json({
+        status: "success",
+        message: `User successfully added`,
+        otp: otp,
+      });
     }
   );
 };
@@ -66,15 +71,19 @@ const updateUser = (request, response) => {
 const deleteUser = (request, response) => {
   const { phone } = parseInt(request.body);
 
-  pool.query("DELETE FROM users WHERE id = $1", [phone], (error, results) => {
-    if (error) {
-      throw error;
+  pool.query(
+    "DELETE FROM users WHERE phone = $1",
+    [phone],
+    (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json({
+        status: "success",
+        message: "User successfully deleted!",
+      });
     }
-    response.status(200).json({
-      status: "success",
-      message: "User successfully deleted!",
-    });
-  });
+  );
 };
 
 const checkOtp = (request, response) => {
@@ -91,13 +100,37 @@ const checkOtp = (request, response) => {
         response
           .status(200)
           .json({ status: "success", message: "Otp verified" });
-        // pool.query("UPDATE users SET otp = '' WHERE phone = $1");
+        pool.query("UPDATE users SET otp = '' WHERE phone = $1", [phone]);
       } else {
         response.status(400).json({
           status: "failed",
           message: "Check phone number and otp again",
         });
       }
+    }
+  );
+};
+
+const resendOtp = (request, response) => {
+  const { phone } = request.body;
+  const otp = Math.floor(1000 + Math.random() * 9000);
+  setTimeout(() => {
+    console.log(phone);
+    pool.query("UPDATE users SET otp = '' WHERE phone = $1", [phone]);
+  }, 60000);
+
+  pool.query(
+    "UPDATE users SET otp = $1 WHERE phone = $2",
+    [otp, phone],
+    (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json({
+        status: "success",
+        message: `New otp sent`,
+        otp: otp,
+      });
     }
   );
 };
@@ -109,4 +142,5 @@ module.exports = {
   updateUser,
   deleteUser,
   checkOtp,
+  resendOtp,
 };
