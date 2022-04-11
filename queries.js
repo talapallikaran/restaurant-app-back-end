@@ -35,11 +35,19 @@ const createUser = (request, response) => {
   }, 60000);
 
   pool.query(
-    "INSERT INTO users (phone,otp) VALUES ($1,$2)",
-    [phone, otp],
+    "SELECT EXISTS (SELECT * FROM users WHERE phone = $1)",
+    [phone],
     (error, results) => {
       if (error) {
         throw error;
+      }
+      if (results.rows[0].exists) {
+        pool.query("UPDATE users SET otp = $1 WHERE phone = $2", [otp, phone]);
+      } else {
+        pool.query("INSERT INTO users (phone,otp) VALUES ($1,$2)", [
+          phone,
+          otp,
+        ]);
       }
       response.status(200).json({
         status: "success",
@@ -115,22 +123,29 @@ const resendOtp = (request, response) => {
   const { phone } = request.body;
   const otp = Math.floor(1000 + Math.random() * 9000);
   setTimeout(() => {
-    console.log(phone);
     pool.query("UPDATE users SET otp = '' WHERE phone = $1", [phone]);
   }, 60000);
 
   pool.query(
-    "UPDATE users SET otp = $1 WHERE phone = $2",
-    [otp, phone],
+    "SELECT EXISTS (SELECT * FROM users WHERE phone = $1)",
+    [phone],
     (error, results) => {
       if (error) {
         throw error;
       }
-      response.status(200).json({
-        status: "success",
-        message: `New otp sent`,
-        otp: otp,
-      });
+      if (results.rows[0].exists) {
+        pool.query("UPDATE users SET otp = $1 WHERE phone = $2", [otp, phone]);
+        response.status(200).json({
+          status: "success",
+          message: `New otp sent`,
+          otp: otp,
+        });
+      } else {
+        response.status(401).json({
+          status: "failed",
+          message: `Enter valid number`,
+        });
+      }
     }
   );
 };
