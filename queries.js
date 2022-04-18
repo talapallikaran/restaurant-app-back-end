@@ -150,6 +150,18 @@ const resendOtp = (request, response) => {
   );
 };
 
+const getRestaurantWithMenu = (request, response) => {
+  pool.query(
+    "select restaurant.id, restaurant.name, restaurant.country, restaurant.image, restaurant.address,restaurant.city, restaurant.type, restaurant.location,restaurant.operating_hours, json_agg(json_build_object('menu_id', menu.menu_item_id,'menu_name',menu.menu_name, 'menu_price',menu.menu_price, 'menu_image',menu.menu_image, 'description',menu.description, 'menu_type',menu.menu_type)) as menu from restaurant join menu  on restaurant.id = menu.id group by restaurant.id order by restaurant.id ASC",
+    (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    }
+  );
+};
+
 module.exports = {
   getUsers,
   getUserById,
@@ -158,4 +170,5 @@ module.exports = {
   deleteUser,
   checkOtp,
   resendOtp,
+  getRestaurantWithMenu,
 };

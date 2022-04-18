@@ -22,6 +22,7 @@ app.put("/users/:id", db.updateUser);
 app.delete("/userDelete", db.deleteUser);
 app.post("/otp", db.checkOtp);
 app.post("/resendOtp", db.resendOtp);
+app.get("/restaurant", db.getRestaurantWithMenu);
 
 app.listen(PORT, () => {
   console.log(`App running on port ${PORT}.`);
