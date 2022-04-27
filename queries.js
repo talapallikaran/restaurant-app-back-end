@@ -1,3 +1,11 @@
+const { response } = require("express");
+const { request } = require("express");
+const dotenv = require("dotenv");
+const jwt = require("jsonwebtoken");
+
+// get config vars
+dotenv.config();
+
 const Pool = require("pg").Pool;
 const pool = new Pool({
   user: "me",
@@ -29,6 +37,7 @@ const getUserById = (request, response) => {
 
 const createUser = (request, response) => {
   const { phone } = request.body;
+
   const otp = Math.floor(1000 + Math.random() * 9000);
   setTimeout(() => {
     pool.query("UPDATE users SET otp = '' WHERE phone = $1", [phone]);
@@ -93,9 +102,14 @@ const deleteUser = (request, response) => {
     }
   );
 };
+console.log("token", process.env.TOKEN_SECRET);
+function generateAccessToken(phone) {
+  return jwt.sign({ phone }, process.env.TOKEN_SECRET, { expiresIn: "120s" });
+}
 
 const checkOtp = (request, response) => {
   const { phone, otp } = request.body;
+  const token = generateAccessToken(phone);
 
   pool.query(
     "SELECT (phone,otp) FROM users WHERE phone IN ($1) AND otp IN ($2) ORDER BY id DESC LIMIT 1",
@@ -105,9 +119,11 @@ const checkOtp = (request, response) => {
         throw error;
       }
       if (results.rows.length > 0) {
-        response
-          .status(200)
-          .json({ status: "success", message: "Otp verified" });
+        response.status(200).json({
+          status: "success",
+          message: "Otp verified",
+          token: token,
+        });
         pool.query("UPDATE users SET otp = '' WHERE phone = $1", [phone]);
       } else {
         response.status(400).json({
@@ -150,6 +166,76 @@ const resendOtp = (request, response) => {
   );
 };
 
+const getRestaurant = (request, response) => {
+  const { id } = request.query;
+  if (id === undefined || id === "") {
+    pool.query("SELECT * FROM restaurant ORDER BY id ASC", (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    });
+  } else {
+    pool.query(
+      "SELECT restaurant.id, restaurant.name, restaurant.country, restaurant.image, restaurant.address,restaurant.city, restaurant.type, restaurant.location,restaurant.operating_hours, json_agg(json_build_object('menu_id', menu.menu_item_id,'menu_name',menu.menu_name, 'menu_price',menu.menu_price, 'menu_image',menu.menu_image, 'description',menu.description, 'menu_type',menu.menu_type)) as menu FROM restaurant join menu  on restaurant.id = menu.id WHERE restaurant.id= $1 group by restaurant.id ORDER BY restaurant.id ASC",
+      [id],
+      (error, results) => {
+        if (error) {
+          throw error;
+        }
+        response.status(200).json(results.rows);
+      }
+    );
+  }
+};
+
+// Use for admin
+
+const createRestaurantAdmin = (request, response) => {
+  const Restaurant = request.body;
+
+  const name = Restaurant.name;
+  const country = Restaurant.country;
+  const image = Restaurant.image;
+  const address = Restaurant.address;
+  const type = Restaurant.type;
+  const location = { lat: Restaurant.lat, long: Restaurant.long };
+  const operating_hours = {
+    Monday: Restaurant.oprating_hours,
+    Tuesday: Restaurant.oprating_hours,
+    Wednesday: Restaurant.oprating_hours,
+    Thursday: Restaurant.oprating_hours,
+    Friday: Restaurant.oprating_hours,
+    Saturday: Restaurant.oprating_hours,
+    Sunday: Restaurant.oprating_hours,
+  };
+  const city = Restaurant.city;
+  pool.query(
+    "INSERT INTO restaurant(id,name,country,image,address,type,city,location,operating_hours) VALUES ((select max(id) + 1 from restaurant),$1,$2,$3,$4,$5,$6,$7,$8)",
+    [name, country, image, address, type, city, location, operating_hours],
+    (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response
+        .status(200)
+        .json({ status: "success", message: `Restaurant SuccessFul added` });
+    }
+  );
+};
+
+const getRestaurantWithMenu = (request, response) => {
+  pool.query(
+    "select restaurant.id, restaurant.name, restaurant.country, restaurant.image, restaurant.address,restaurant.city, restaurant.type, restaurant.location,restaurant.operating_hours, json_agg(json_build_object('menu_id', menu.menu_item_id,'menu_name',menu.menu_name, 'menu_price',menu.menu_price, 'menu_image',menu.menu_image, 'description',menu.description, 'menu_type',menu.menu_type)) as menu from restaurant join menu  on restaurant.id = menu.id group by restaurant.id order by restaurant.id ASC",
+    (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    }
+  );
+};
+
 module.exports = {
   getUsers,
   getUserById,
@@ -158,4 +244,7 @@ module.exports = {
   deleteUser,
   checkOtp,
   resendOtp,
+  getRestaurantWithMenu,
+  getRestaurant,
+  createRestaurantAdmin,
 };
