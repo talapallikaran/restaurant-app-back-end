@@ -102,9 +102,9 @@ const deleteUser = (request, response) => {
     }
   );
 };
-console.log("token", process.env.TOKEN_SECRET);
+
 function generateAccessToken(phone) {
-  return jwt.sign({ phone }, process.env.TOKEN_SECRET, { expiresIn: "120s" });
+  return jwt.sign({ phone }, process.env.TOKEN_SECRET, { expiresIn: "1800s" });
 }
 
 const checkOtp = (request, response) => {
